@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model GameSession {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  difficulty String  @default("strong")
+  completed  Boolean @default(false)
+  winner     String? // "player" | "opponent" | null
+
+  moves AnalyzedMove[]
+}
+
+model AnalyzedMove {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  gameId     String
+  game       GameSession @relation(fields: [gameId], references: [id])
+  moveNumber Int
+
+  // Position data (stored as JSON)
+  boardState String // JSON BoardState
+  dice       String // JSON DiceRoll
+
+  // Move data
+  playedMove String // JSON Move
+  bestMove   String // JSON Move
+
+  // Analysis
+  playedEquity Float
+  bestEquity   Float
+  equityLoss   Float
+  blunderLevel String @default("none")
+
+  // Features (JSON)
+  features String?
+
+  // Explanation (JSON)
+  explanation String?
+
+  // Config used
+  threshold Float @default(0.08)
+
+  @@index([gameId, moveNumber])
+}
+
+model UserPreferences {
+  id        String   @id @default("default")
+  updatedAt DateTime @updatedAt
+
+  blunderPreset    String @default("normal")
+  blunderThreshold Float  @default(0.08)
+  difficulty       String @default("strong")
+  llmProvider      String @default("mock")
+  autoAnalyze      Boolean @default(true)
+}
