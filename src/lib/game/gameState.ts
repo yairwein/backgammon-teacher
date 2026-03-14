@@ -9,14 +9,12 @@ import type {
 	Player, Difficulty
 } from '$lib/backgammon/types.js';
 
-let gameIdCounter = 0;
-
 /**
  * Create a new game state.
  */
 export function createGame(difficulty: Difficulty = 'strong'): GameState {
 	return {
-		id: `game-${++gameIdCounter}-${Date.now()}`,
+		id: `${Date.now()}-${crypto.randomUUID()}`,
 		board: initialBoard(),
 		turn: 'player',
 		dice: null,

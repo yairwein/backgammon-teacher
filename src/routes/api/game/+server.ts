@@ -20,16 +20,19 @@ const undoStack = new Map<string, GameState>();
 // Max age for stale games (2 hours)
 const GAME_MAX_AGE_MS = 2 * 60 * 60 * 1000;
 
-/** Resolve a game from in-memory Map, falling back to client-supplied state (multi-instance support) */
+/** Extract creation timestamp from game ID format: {timestamp}-{uuid} */
+function gameCreatedAt(id: string): number {
+	const ts = parseInt(id.split('-')[0]);
+	return isNaN(ts) ? 0 : ts;
+}
+
+/** Resolve a game: client state is the source of truth (multi-instance, no shared storage) */
 function resolveGame(gameId: string, clientGame?: GameState): GameState | null {
-	const game = games.get(gameId);
-	if (game) return game;
 	if (clientGame?.id === gameId) {
-		console.log(`[restore] Auto-restored game ${gameId} from client state. Active games: ${games.size}`);
 		games.set(gameId, clientGame);
 		return clientGame;
 	}
-	return null;
+	return games.get(gameId) || null;
 }
 
 /** Periodically clean up finished and stale games */
@@ -40,8 +43,7 @@ function cleanupGames() {
 			games.delete(id);
 			undoStack.delete(id);
 		} else {
-			// Extract timestamp from game ID: game-{counter}-{timestamp}
-			const ts = parseInt(id.split('-').pop() || '0');
+			const ts = gameCreatedAt(id);
 			if (ts > 0 && now - ts > GAME_MAX_AGE_MS) {
 				games.delete(id);
 				undoStack.delete(id);

@@ -17,13 +17,11 @@ let games: Map<string, GameState>;
 let undoStack: Map<string, GameState>;
 
 function resolveGame(gameId: string, clientGame?: GameState): GameState | null {
-	const game = games.get(gameId);
-	if (game) return game;
 	if (clientGame?.id === gameId) {
 		games.set(gameId, clientGame);
 		return clientGame;
 	}
-	return null;
+	return games.get(gameId) || null;
 }
 
 describe('multi-instance game restore', () => {
@@ -61,14 +59,14 @@ describe('multi-instance game restore', () => {
 		expect(resolved).toBeNull();
 	});
 
-	it('prefers in-memory state over client state', () => {
+	it('prefers client state over in-memory state (client is source of truth)', () => {
 		const game1 = createGame('strong');
 		const game2 = { ...createGame('strong'), id: game1.id };
 		games.set(game1.id, game1);
 
 		const resolved = resolveGame(game1.id, game2);
-		// Should return the in-memory version, not the client version
-		expect(resolved).toBe(game1);
+		// Should return the client version — client is always the source of truth
+		expect(resolved).toBe(game2);
 	});
 
 	it('restored game can be used for subsequent operations', () => {
@@ -151,15 +149,15 @@ describe('game cleanup', () => {
 	it('stale games (>2h) should be eligible for cleanup', () => {
 		const GAME_MAX_AGE_MS = 2 * 60 * 60 * 1000;
 		const staleTimestamp = Date.now() - GAME_MAX_AGE_MS - 1000;
-		const staleId = `game-1-${staleTimestamp}`;
+		const staleId = `${staleTimestamp}-fake-uuid-1234`;
 		const game = { ...createGame('strong'), id: staleId };
 		games.set(staleId, game);
 
-		// Simulate cleanup
+		// Simulate cleanup using ID format: {timestamp}-{uuid}
 		const now = Date.now();
 		for (const [id] of games) {
-			const ts = parseInt(id.split('-').pop() || '0');
-			if (ts > 0 && now - ts > GAME_MAX_AGE_MS) {
+			const ts = parseInt(id.split('-')[0]);
+			if (!isNaN(ts) && now - ts > GAME_MAX_AGE_MS) {
 				games.delete(id);
 			}
 		}
@@ -177,8 +175,8 @@ describe('game cleanup', () => {
 			if (g.gameOver) {
 				games.delete(id);
 			} else {
-				const ts = parseInt(id.split('-').pop() || '0');
-				if (ts > 0 && now - ts > GAME_MAX_AGE_MS) {
+				const ts = parseInt(id.split('-')[0]);
+				if (!isNaN(ts) && now - ts > GAME_MAX_AGE_MS) {
 					games.delete(id);
 				}
 			}
